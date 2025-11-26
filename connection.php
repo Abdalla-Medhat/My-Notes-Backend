@@ -13,7 +13,7 @@ header("Access-Control-Allow-Methods: POST, OPTIONS , GET");
 checkAuthenticate() ; 
 
 //database source name
-$dsn= "mysql:host=example.awardspace.net;dbname=example;charset=utf8mb4";
+$dsn= "mysql:host=example;dbname=example;charset=utf8mb4";
 $user="example";
 $pass="example";
 //To deal with Arabic characters 
