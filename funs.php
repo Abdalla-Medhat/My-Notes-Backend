@@ -1,64 +1,64 @@
 <?php
 
-// دالة تنقية البيانات من المستخدم
+// Sanitize user input
 function requestFilter($request){
     return htmlspecialchars(strip_tags($_POST[$request]));
 } 
 
-// دالة رفع الصورة إلى السيرفر
+// Handle image upload to the server
 function uploadImg($request){
-    // إذا لم يتم رفع ملف أو فيه خطأ في الرفع، ارجع null
+    // Return null if no file was uploaded or an upload error occurred
     if (!isset($_FILES[$request]) || $_FILES[$request]['error'] === UPLOAD_ERR_NO_FILE){
         return null;
     }
-    
-    // تعريف حجم 1 ميجابايت
+
+    // Define 1 MB in bytes
     define("MB", 1048576);
     global $errormsg;
-    
-    // إنشاء اسم فريد للصورة علشان نتجنب التكرار
+
+    // Generate a unique file name to avoid overwriting existing files
     $imageName = uniqid() . "_" . $_FILES[$request]['name'];
-    $imageSize = $_FILES[$request]['size'];
-    $imageTemp = $_FILES[$request]['tmp_name'];
-    $imageError = $_FILES[$request]['error'];
+    $imageSize = $_FILES[$request]['size']; // Retrieve file size
+    $imageTemp = $_FILES[$request]['tmp_name']; // Retrieve temporary file path
+    $imageError = $_FILES[$request]['error']; // Retrieve upload error code
     $allowedTypes = array('jpg', 'jpeg', 'png', 'gif');
-    
-    // استخراج امتداد الصورة
+
+    // Extract file extension
     $tranlated = explode('.', $imageName);
     $extension = end($tranlated);
-    
-    // فحص الأخطاء المحتملة في الرفع
+
+    // Check potential upload errors
     if ($imageError === UPLOAD_ERR_INI_SIZE) {
-        $errormsg[] = 'حجم الملف أكبر من المسموح في السيرفر';
+        $errormsg[] = 'File size exceeds the server limit';
     } elseif ($imageError === UPLOAD_ERR_FORM_SIZE) {
-        $errormsg[] = 'حجم الملف أكبر من المسموح في النموذج';
+        $errormsg[] = 'File size exceeds the form limit';
     } elseif ($imageError !== UPLOAD_ERR_OK) {
-        $errormsg[] = 'خطأ غير معروف في الرفع (كود ' . $imageError . ')';
+        $errormsg[] = 'Unknown upload error (Code ' . $imageError . ')';
     }
-    
-    // التحقق من أن حجم الصورة لا يتعدى 2 ميجابايت
+
+    // Ensure file size does not exceed 2 MB
     if($imageSize > 2 * MB){
-        $errormsg[] = 'حجم الصورة أكبر من 2 ميجابايت';
+        $errormsg[] = 'Image size exceeds 2 MB';
     }
-    
-    // التحقق من نوع الصورة المسموح به
+
+    // Validate file extension
     if (!in_array($extension, $allowedTypes) && !empty($imageName)) {
-        $errormsg[] = 'نوع الصورة غير مسموح به';
+        $errormsg[] = 'Invalid image type';
     }
-    
-    // إذا لا توجد أخطاء، قم برفع الصورة
+
+    // If no errors found, upload file
     if(empty($errormsg)){
         move_uploaded_file($imageTemp, "../images/".$imageName);
         return $imageName;
     } else {
-        // إذا كانت هناك أخطاء، ارجع مصفوفة بالأخطاء
+        // Return error list if upload failed
         return array("status" => "failed", "error" => $errormsg);
     }
 }
 
-// دالة حذف الصورة من السيرفر
+// Function to delete an image from the server
 function deleteImage($dir, $imgName){
-    // إذا الملف موجود، قم بحذفه
+    // If file exists, delete it
     if(file_exists($dir . "/" . $imgName )){
         unlink($dir . "/" . $imgName);
         return true;
@@ -66,30 +66,31 @@ function deleteImage($dir, $imgName){
     return false;
 }
 
-// دالة عرض الصورة - الجديدة
+// Display image (updated version)
 function displayImage($imageName) {
-    // تنظيف اسم الصورة للحماية
+    // Clean image name for security using <basename function>
     $imageName = basename($imageName);
-$imagePath = __DIR__ . '/images/' . $imageName; // صح    
-    // إذا الصورة موجودة، اعرضها
+    $imagePath = __DIR__ . '/images/' . $imageName;
+
+    // If image exists, display it
     if(file_exists($imagePath) && is_file($imagePath)){
-        // تحديد نوع المحتوى بناءً على امتداد الصورة
+        // Detect content type based on file extension
         $extension = strtolower(pathinfo($imagePath, PATHINFO_EXTENSION));
         $contentTypes = [
             'jpg' => 'image/jpeg',
-            'jpeg' => 'image/jpeg', 
+            'jpeg' => 'image/jpeg',
             'png' => 'image/png',
             'gif' => 'image/gif'
         ];
-        
+
         $contentType = $contentTypes[$extension] ?? 'image/jpeg';
-        header('Content-Type: ' . $contentType); //يحدد هيدر الاستجابة علشان المتصفح يعرف يعرض الصورة.
-        header('Cache-Control: max-age=3600'); //يخبر المتصفح أو البروكسي إن الصورة قابلة للتخزين مؤقتًا لمدة 3600 ثانية (ساعة)
-        
+        header('Content-Type: ' . $contentType); // Set correct header so browser displays the image
+        header('Cache-Control: max-age=3600');   // Cache image for 1 hour
+
         readfile($imagePath);
         return true;
     } else {
-        // إذا الصورة مش موجودة، ارجع خطأ 404
+        // Image not found → return 404
         http_response_code(404);
         header('Content-Type: application/json');
         echo json_encode(['status' => 'error', 'message' => 'Image not found']);
@@ -97,11 +98,11 @@ $imagePath = __DIR__ . '/images/' . $imageName; // صح
     }
 }
 
-// دالة المصادقة
+// Authentication function
 function checkAuthenticate(){
-    $apiKey = $_SERVER['HTTP_API_KEY'] ?? '';    
+    $apiKey = $_SERVER['HTTP_API_KEY'] ?? '';
     $secretKey = "example";
-    
+
     if($apiKey === $secretKey){
         return;
     } else {
@@ -112,7 +113,7 @@ function checkAuthenticate(){
     }
 }
 
-// إذا كان الطلب مباشر لعرض صورة (بدون الحاجة لملف image.php منفصل)
+// Image display handler (without separate image.php)
 if (isset($_GET['img'])) {
     header('Access-Control-Allow-Origin: *');
     header('Access-Control-Allow-Headers: *');
