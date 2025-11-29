@@ -25,7 +25,7 @@ function uploadImg($request){
 
     // Extract file extension
     $tranlated = explode('.', $imageName);
-    $extension = end($tranlated);
+    $extension = strtolower(end($tranlated));
 
     // Check potential upload errors
     if ($imageError === UPLOAD_ERR_INI_SIZE) {
